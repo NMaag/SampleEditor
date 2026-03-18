@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 import tifffile
 
 from sample_editor.core.labels import generate_label_image
+
+SUPPORTED_SLIDE_EXTENSIONS = (".isyntax", ".ndpi")
 
 
 def extract_he_id(filename: str) -> str:
@@ -19,11 +22,29 @@ def list_slide_files(folder: Path) -> list[str]:
     """List slide files supported by the current tool."""
     if not folder.is_dir():
         return []
-    return sorted(path.name for path in folder.iterdir() if path.suffix.lower() == ".svs")
+    return sorted(
+        path.name
+        for path in folder.iterdir()
+        if path.suffix.lower() in SUPPORTED_SLIDE_EXTENSIONS
+    )
 
 
 def describe_slide(slide_path: Path) -> list[dict[str, Any]]:
     """Return page-level metadata for a slide."""
+    suffix = slide_path.suffix.lower()
+    if suffix == ".isyntax":
+        stat_result = slide_path.stat()
+        return [
+            {
+                "page_number": 1,
+                "shape": "N/A",
+                "description": (
+                    f"Philips iSyntax file | size={stat_result.st_size:,} bytes | "
+                    f"modified={datetime.fromtimestamp(stat_result.st_mtime)}"
+                ),
+            }
+        ]
+
     pages: list[dict[str, Any]] = []
     with tifffile.TiffFile(slide_path) as tif:
         for index, page in enumerate(tif.pages, start=1):
@@ -51,7 +72,12 @@ def replace_label_and_write(
     code: str,
     out_path: Path | None = None,
 ) -> Path:
-    """Replace the label page in an SVS file and write a new output slide."""
+    """Replace the label page in a supported slide file and write a new output slide."""
+    if svs_path.suffix.lower() != ".ndpi":
+        raise NotImplementedError(
+            "Conversion is currently implemented for .ndpi files only."
+        )
+
     label_np = generate_label_image(code)
     if out_path is None:
         out_path = svs_path.with_name(f"{code}{svs_path.suffix}")

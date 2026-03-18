@@ -30,16 +30,16 @@ tests/
 docs/
 ```
 
-## Current CLI Usage
+## Current MVP Usage
 
-Once dependencies are installed, you can run the in-progress command-line app with:
+Once dependencies are installed, you can run the GUI MVP with:
 
 ```powershell
-py -3.14 -m pip install -e .
+py -3.14 -m pip install -e .[gui]
 py -3.14 -m sample_editor
 ```
 
-This is still a transitional interface, but it now gives us a real command entry point while we build the GUI.
+This MVP is intentionally small: choose folders, choose a mapping CSV, view files, convert files, compare slides, and review activity in the log pane.
 
 ## Original Project Notes
 
