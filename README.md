@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SampleEditor Revamp
 
 This repository is the new home for a friendlier version of SampleEditor.
@@ -52,3 +53,7 @@ The original project in `C:\Users\zh0703\Downloads\SampleEditor 1\SampleEditor` 
 - supports single convert, batch convert, compare, view, and path configuration
 
 One important cleanup item is that the main script is currently saved as `SampleEditor.txt`, even though it contains Python code. In the new repo we will use normal `.py` files and split responsibilities into modules.
+=======
+# SampleEditor
+Edit Pyramidal Image Files for Anonymization
+>>>>>>> d646340dc1369ae18b69fb17fece3afd59a563c8
