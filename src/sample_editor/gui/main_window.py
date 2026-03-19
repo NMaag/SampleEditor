@@ -29,6 +29,7 @@ from sample_editor.core.config import load_runtime_paths, persist_runtime_paths
 from sample_editor.core.mapping import load_mapping_safe
 from sample_editor.core.slides import (
     compare_slides,
+    describe_case_files,
     describe_slide,
     extract_he_id,
     list_slide_files,
@@ -55,11 +56,23 @@ class MainWindow(QMainWindow):
 
         self.input_list = QListWidget()
         self.output_list = QListWidget()
+        self.case_files_view = QPlainTextEdit()
+        self.case_files_view.setReadOnly(True)
+        self.case_files_view.setPlaceholderText(
+            "Select a file to see all related .isyntax/.ndpi files in that case."
+        )
+        self.file_details_view = QPlainTextEdit()
+        self.file_details_view.setReadOnly(True)
+        self.file_details_view.setPlaceholderText(
+            "Selected file details will appear here."
+        )
         self.log_output = QPlainTextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setPlaceholderText("Activity log will appear here.")
 
         self._build_ui()
+        self.input_list.currentItemChanged.connect(self.update_case_context)
+        self.output_list.currentItemChanged.connect(self.update_case_context)
         self.input_list.itemDoubleClicked.connect(self.view_selected_slide)
         self.output_list.itemDoubleClicked.connect(self.view_selected_slide)
         self.refresh_lists()
@@ -73,6 +86,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_paths_group())
         root_layout.addWidget(self._build_actions_group())
         root_layout.addWidget(self._build_file_splitter(), stretch=1)
+        root_layout.addWidget(self._build_case_context_group(), stretch=1)
         root_layout.addWidget(self._build_log_group(), stretch=1)
 
         self.setCentralWidget(container)
@@ -146,6 +160,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.log_output)
         return group
 
+    def _build_case_context_group(self) -> QGroupBox:
+        group = QGroupBox("Case Context")
+        layout = QHBoxLayout(group)
+        layout.addWidget(self.case_files_view)
+        layout.addWidget(self.file_details_view)
+        return group
+
     def _make_button(self, label: str, handler: object) -> QPushButton:
         button = QPushButton(label)
         button.clicked.connect(handler)  # type: ignore[arg-type]
@@ -210,6 +231,7 @@ class MainWindow(QMainWindow):
             f"Refreshed file lists. "
             f"{self.input_list.count()} input / {self.output_list.count()} output files."
         )
+        self.update_case_context()
 
     def append_log(self, message: str) -> None:
         self.log_output.appendPlainText(message)
@@ -228,6 +250,38 @@ class MainWindow(QMainWindow):
 
     def mapping(self) -> dict[str, str]:
         return load_mapping_safe(self.current_paths()["csv_mapping_path"])
+
+    def selected_slide_path(self) -> Path | None:
+        return self.selected_input_path() or self.selected_output_path()
+
+    def update_case_context(self) -> None:
+        slide_path = self.selected_slide_path()
+        if slide_path is None:
+            self.case_files_view.clear()
+            self.file_details_view.clear()
+            return
+
+        case_descriptions = describe_case_files(slide_path)
+        if case_descriptions:
+            lines = [f"Case folder: {slide_path.parent}"]
+            for entry in case_descriptions:
+                marker = "HE candidate" if entry["is_largest"] else "USS/other"
+                lines.append(
+                    f"- {entry['name']} | {entry['size_mb']} MB | {marker}"
+                )
+            self.case_files_view.setPlainText("\n".join(lines))
+        else:
+            self.case_files_view.setPlainText("No related case files found.")
+
+        self.file_details_view.setPlainText(
+            "\n".join(
+                [
+                    f"Selected file: {slide_path.name}",
+                    f"Folder: {slide_path.parent}",
+                    f"Extension: {slide_path.suffix}",
+                ]
+            )
+        )
 
     def convert_selected_input(self) -> None:
         slide_path = self.selected_input_path()
@@ -315,6 +369,7 @@ class MainWindow(QMainWindow):
             details or "No page details available.",
         )
         self.append_log(f"Viewed {slide_path.name}")
+        self.update_case_context()
 
     def compare_selected_pair(self) -> None:
         input_path = self.selected_input_path()

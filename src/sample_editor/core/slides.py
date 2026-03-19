@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-from datetime import datetime
 
 import tifffile
 
@@ -23,10 +23,47 @@ def list_slide_files(folder: Path) -> list[str]:
     if not folder.is_dir():
         return []
     return sorted(
-        path.name
-        for path in folder.iterdir()
-        if path.suffix.lower() in SUPPORTED_SLIDE_EXTENSIONS
+        str(path.relative_to(folder))
+        for path in folder.rglob("*")
+        if path.is_file() and path.suffix.lower() in SUPPORTED_SLIDE_EXTENSIONS
     )
+
+
+def list_case_slide_paths(slide_path: Path) -> list[Path]:
+    """Return supported slide files from the selected slide's containing folder."""
+    case_folder = slide_path.parent
+    return sorted(
+        (
+            path
+            for path in case_folder.iterdir()
+            if path.is_file() and path.suffix.lower() in SUPPORTED_SLIDE_EXTENSIONS
+        ),
+        key=lambda path: path.stat().st_size,
+        reverse=True,
+    )
+
+
+def describe_case_files(slide_path: Path) -> list[dict[str, Any]]:
+    """Return a size-sorted description of the selected slide's case-level files."""
+    case_files = list_case_slide_paths(slide_path)
+    if not case_files:
+        return []
+
+    largest_path = case_files[0]
+    descriptions: list[dict[str, Any]] = []
+    for path in case_files:
+        stat_result = path.stat()
+        descriptions.append(
+            {
+                "name": path.name,
+                "path": path,
+                "size_bytes": stat_result.st_size,
+                "size_mb": round(stat_result.st_size / (1024 * 1024), 2),
+                "modified": datetime.fromtimestamp(stat_result.st_mtime),
+                "is_largest": path == largest_path,
+            }
+        )
+    return descriptions
 
 
 def describe_slide(slide_path: Path) -> list[dict[str, Any]]:
